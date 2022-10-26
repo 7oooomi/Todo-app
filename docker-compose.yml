@@ -1,0 +1,62 @@
+version: '3'
+
+services:
+  db:
+    image: mysql:8
+    container_name: tsdb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${ROOT_PASS}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+      TZ: ${TZ}
+    expose:
+        - 3306
+    ports:
+        - ${DB_PORT}:3306
+    volumes:
+        - db-store:/var/lib/mysql
+        - ./conf/my.cnf:/etc/mysql/conf.d/my.cnf
+
+  node:
+    image: node:lts # Dockerfileの親フォルダパス
+    container_name: tsexpress # コンテナ名
+    tty: true
+    expose:
+      - 3000
+    environment:
+      - PORT=3000 # コンテナ内でのポート番号
+    volumes:
+      - ./backend:/usr/src/app
+      - express-data:/usr/src/app/node_modules # volumeのエントリポイント => 高速化
+    ports:
+      - 5555:5555
+      - 9229:9229
+      - 3000:3000 # 公開ポート番号:environmentで指定したポート番号
+    working_dir: /usr/src/app/app
+    command: npm run start:debug
+
+  next:
+    image: node:lts # Dockerfileの親フォルダパス
+    container_name: tsnext # コンテナ名
+    tty: true
+    environment:
+      - NODE_ENV=DEVELOPMENT
+      - WATCHPACK_POLLING=true
+      - PORT=3008 # コンテナ内でのポート番号
+    volumes:
+      - ./:/usr/src/app
+      - next-data:/usr/src/node_modules # volumeのエントリポイント => 高速化
+    ports:
+      - 3008:3008 # 公開ポート番号:environmentで指定したポート番号
+    working_dir: /usr/src/app
+    command: sh -c "cd front && npm run dev"
+
+volumes:
+  db-store:
+    name: tsdb
+  express-data:
+    name: tsexpress
+  next-data:
+    name: tsnext
